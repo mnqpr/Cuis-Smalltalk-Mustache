@@ -1,23 +1,12 @@
-'From Cuis 6.0 [latest update: #6068] on 5 November 2023 at 8:57:38 pm'!
+'From Cuis 6.0 [latest update: #6068] on 6 November 2023 at 9:11:22 pm'!
 'Description '!
-!provides: 'Mustache' 1 13!
+!provides: 'Mustache' 1 23!
 !requires: 'Cuis-Base' 60 6068 nil!
-!requires: 'JSON' 1 25 nil!
 SystemOrganization addCategory: #'Mustache-Core'!
 SystemOrganization addCategory: #'Mustache-Tests'!
 SystemOrganization addCategory: #'Mustache-Cli'!
 SystemOrganization addCategory: #'Mustache-PharoCompatibility'!
 
-
-!classDefinition: #Stack category: #'Mustache-PharoCompatibility'!
-LinkedList subclass: #Stack
-	instanceVariableNames: ''
-	classVariableNames: ''
-	poolDictionaries: ''
-	category: 'Mustache-PharoCompatibility'!
-!classDefinition: 'Stack class' category: #'Mustache-PharoCompatibility'!
-Stack class
-	instanceVariableNames: ''!
 
 !classDefinition: #ValueLink category: #'Mustache-PharoCompatibility'!
 Link subclass: #ValueLink
@@ -31,7 +20,7 @@ ValueLink class
 
 !classDefinition: #MustacheTests category: #'Mustache-Tests'!
 TestCase subclass: #MustacheTests
-	instanceVariableNames: ''
+	instanceVariableNames: 'testFile'
 	classVariableNames: ''
 	poolDictionaries: ''
 	category: 'Mustache-Tests'!
@@ -180,9 +169,6 @@ MustacheCommandLineHandler class
 	instanceVariableNames: ''!
 
 
-!Stack commentStamp: '' prior: 0!
-I implement a simple Stack. #push: adds a new object of any kind on top of the stack. #pop returns the first element and remove it from the stack. #top answer the first element of the stack without removing it.!
-
 !ValueLink commentStamp: '' prior: 0!
 A ValueLink is a Link containing a Value.
 Adding an object to a LinkedList which is not a Link will create a ValueLink containing that object.
@@ -230,25 +216,6 @@ Options:
 	--template			a template for mustache
 	[--partials]			template files
 	[--baseDirectory] 		a directory where files can be found!
-
-!Stack methodsFor: 'removing'!
-pop
-	"Returns the first element and remove it from the stack."
-
-	^self removeFirst! !
-
-!Stack methodsFor: 'accessing'!
-top
-	"Answer the first element of the stack without removing it."
-
-	^ self first! !
-
-!Stack methodsFor: 'adding'!
-push: anObject
-	"Adds a new object of any kind on top of the stack."
-
-	self addFirst: anObject.
-	^ anObject! !
 
 !ValueLink methodsFor: 'evaluating'!
 value
@@ -401,14 +368,14 @@ testDefaultUnescapedToken
 	self assert: result = 'This is a test for &.'.
 	! !
 
-!MustacheTests methodsFor: 'tests'!
+!MustacheTests methodsFor: 'tests' stamp: 'mnqpr 11/6/2023 20:51:44'!
 testDictionaryInDictionary
 	| template result |
 	template := MustacheTemplate on: '{{#person?}} Hi {{name}}!! {{/person?}}' .
 	result := template 
 		value: { 'person?' -> 
 			{ 'name' -> 'Jon' } asDictionary  } asDictionary.
-	self assert: result = ' Hi Jon!! ' ! !
+	self assert: result = ' Hi ''Jon''!! '! !
 
 !MustacheTests methodsFor: 'tests'!
 testDotToken
@@ -512,10 +479,10 @@ testObjectNoSection
 		value: { 'stream' -> 'Hello' readStream } asDictionary.
 	self assert: result = 'Class: ReadStream, Position: 0, Next: H, Position: 1' ! !
 
-!MustacheTests methodsFor: 'tests'!
+!MustacheTests methodsFor: 'tests' stamp: 'mnqpr 11/6/2023 21:10:50'!
 testObjectNoSectionBreakingDemeterLaw
 	| template result |
-	template := MustacheTemplate on: '{{stream.class.name.first.lowercase}}' .
+	template := MustacheTemplate on: '{{stream.class.name.first.asLowercase}}' .
 	result := template 
 		value: { 'stream' -> 'Hello' readStream } asDictionary.
 	self assert: result = 'r' ! !
@@ -665,23 +632,19 @@ testSingleTokenUndefinedValue
 	self assert: result = 'This is a test for .' 
 	! !
 
-!MustacheTests methodsFor: 'tests' stamp: 'mnqpr 11/5/2023 20:57:23'!
+!MustacheTests methodsFor: 'tests' stamp: 'mnqpr 11/6/2023 17:14:25'!
 testTemplateFromFile
-	| file template result |
-	file := DirectoryEntry smalltalkImageDirectory // 'file'.
-	file ifExists: [ :aFile | aFile delete].
-	file writeStreamDo: [ :stream | stream nextPutAll: '12{{i}}4' ].
-	template := file asMustacheTemplate.
+	| template result |
+	testFile writeStreamDo: [ :stream | stream nextPutAll: '12{{i}}4' ].
+	template := testFile asMustacheTemplate.
 	result := template value: { 'i' -> '3' } asDictionary .
 	self assert: result asStreamResult equals: '1234' ! !
 
-!MustacheTests methodsFor: 'tests' stamp: 'mnqpr 11/5/2023 20:56:24'!
+!MustacheTests methodsFor: 'tests' stamp: 'mnqpr 11/6/2023 17:15:32'!
 testTemplateFromFileWithBlock
-	| file result |
-	file := DirectoryEntry smalltalkImageDirectory // 'file'.
-	file ifExists: [ :aFile | aFile delete].
-	file writeStreamDo: [ :stream | stream nextPutAll: '12{{i}}4' ].
-	file mustacheTemplateDuring: [ :template | result := template value: {('i' -> '3')} asDictionary ].
+	| result |
+	testFile writeStreamDo: [ :stream | stream nextPutAll: '12{{i}}4' ].
+	testFile mustacheTemplateDuring: [ :template | result := template value: {('i' -> '3')} asDictionary ].
 	self assert: result asStreamResult equals: '1234'! !
 
 !MustacheTests methodsFor: 'tests'!
@@ -745,28 +708,36 @@ testWriteUnescapedTokenAmpersand
 	option it was. So the result will be the canonical one"
 	self assert: template storeString equals: 'before {{{name}}} after'.! !
 
+!MustacheTests methodsFor: 'setUp/tearDown' stamp: 'mnqpr 11/6/2023 17:13:13'!
+setUp
+	testFile := DirectoryEntry smalltalkImageDirectory // 'file'.! !
+
+!MustacheTests methodsFor: 'setUp/tearDown' stamp: 'mnqpr 11/6/2023 17:13:41'!
+tearDown 
+	testFile ifExists: [ :aFile | aFile delete].! !
+
 !MustacheParser methodsFor: 'as yet unclassified'!
 compileTemplate: aTemplate
 	self push: aTemplate.
 	self compile! !
 
-!MustacheParser methodsFor: 'initialize-release'!
+!MustacheParser methodsFor: 'initialize-release' stamp: 'mnqpr 11/6/2023 17:19:23'!
 initialize 
 	super initialize.
-	stack := Stack new! !
+	stack := LinkedList new! !
 
 !MustacheParser methodsFor: 'reading'!
 consumeWhiteSpace
 	[ stream atEnd not and: [ stream peek isSeparator ] ] whileTrue: [ 
 		stream next ]! !
 
-!MustacheParser methodsFor: 'reading'!
+!MustacheParser methodsFor: 'reading' stamp: 'mnqpr 11/6/2023 20:05:58'!
 endSection
 	| token |
 	token := self readToken.
-	(stack top selector = token) ifFalse: [ 
-		Error signal: 'end section does not match ', stack top selector asString ].
-	stack pop! !
+	(self stack first value selector = token) ifFalse: [ 
+		Error signal: 'end section does not match ', self stack first value selector asString ].
+	self stack removeFirst! !
 
 !MustacheParser methodsFor: 'reading'!
 readChangeDelimiter
@@ -831,17 +802,16 @@ readUpToEndUsing: aBlock
 	[ stream atEnd ] whileFalse: [  
 		 nextRead := nextRead value ]! !
 
-!MustacheParser methodsFor: 'reading'!
+!MustacheParser methodsFor: 'reading' stamp: 'mnqpr 11/6/2023 20:06:14'!
 startSection: aSectionClass
 	| section |
 	section := aSectionClass selector: self readToken.
 	self addPart: section. 
-	stack push: section	! !
+	self stack addFirst: section	 asLink! !
 
-!MustacheParser methodsFor: 'accessing' stamp: 'mnqpr 11/5/2023 19:17:33'!
+!MustacheParser methodsFor: 'accessing' stamp: 'mnqpr 11/6/2023 20:05:15'!
 addPart: aMustachePart
-	stack top value addPart: aMustachePart
-	! !
+	self stack first value addPart: aMustachePart.! !
 
 !MustacheParser methodsFor: 'accessing'!
 buildDelimiterExtensions
@@ -878,9 +848,13 @@ endDelimiter
 endDelimiter: aString
 	endDelimiter := aString! !
 
-!MustacheParser methodsFor: 'accessing' stamp: 'mnqpr 11/5/2023 19:15:14'!
+!MustacheParser methodsFor: 'accessing' stamp: 'mnqpr 11/6/2023 20:06:07'!
 push: aTemplate 
-	stack push: aTemplate asLink ! !
+	self stack addFirst: aTemplate asLink ! !
+
+!MustacheParser methodsFor: 'accessing' stamp: 'mnqpr 11/6/2023 20:05:01'!
+stack
+	^ stack. ! !
 
 !MustacheParser methodsFor: 'accessing'!
 startDelimiter
@@ -1135,7 +1109,7 @@ token: aString
 lookupInContext: anObject
 	^ self lookup: token inContext: anObject! !
 
-!MustacheToken methodsFor: 'resolving'!
+!MustacheToken methodsFor: 'resolving' stamp: 'mnqpr 11/6/2023 18:31:26'!
 valueInContext: anObject
 	"lookup to token, perfrom value on it in case we have a block and 
 	finally convert it to string"
@@ -1518,7 +1492,7 @@ trimLeft: aLeftBlock right: aRightBlock
 
 	^ self copyFrom: left to: right! !
 
-!Dictionary methodsFor: '*mustache-core'!
+!Dictionary methodsFor: '*mustache-core' stamp: 'mnqpr 11/6/2023 18:23:36'!
 mustacheLookup: aString
 	(aString = '.') ifTrue: [ ^ self ].
 	^ self at: aString ifAbsent: [ self mustacheLookupComplex: aString ]! !
