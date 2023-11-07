@@ -1,6 +1,6 @@
-'From Cuis 6.0 [latest update: #6068] on 6 November 2023 at 9:11:22 pm'!
+'From Cuis 6.0 [latest update: #6068] on 7 November 2023 at 7:48:59 pm'!
 'Description '!
-!provides: 'Mustache' 1 23!
+!provides: 'Mustache' 1 26!
 !requires: 'Cuis-Base' 60 6068 nil!
 SystemOrganization addCategory: #'Mustache-Core'!
 SystemOrganization addCategory: #'Mustache-Tests'!
@@ -1270,66 +1270,64 @@ doesNotUnderstand: aMessage
 		ifTrue: [ ^ aMessage sendTo: delegate ].
 	^ super doesNotUnderstand: aMessage! !
 
-!MustacheCommandLineHandler methodsFor: 'activation'!
+!MustacheCommandLineHandler methodsFor: 'activation' stamp: 'mnqpr 11/7/2023 18:53:20'!
 activate
-	| result template json partials |
-	self activateHelp
-		ifTrue: [ ^ self ].
-	self
-		optionAt: 'baseDirectory'
-		ifPresent: [ :dir | baseDirectory := dir asFileReference ].
-	json := (self baseDirectory resolve: self jsonDataOption) contents.
-	template := (self baseDirectory resolve: self templateOption) contents.
-	partials := self partialsToDictionary: self partialsOption.
+	| result template json partials stdout |
+	baseDirectory := (Smalltalk startUpArguments
+		at: 4
+		ifAbsent: [ self baseDirectory ]) asDirectoryEntry.
+	json := (self baseDirectory // self jsonDataOption) contents.
+	template := (self baseDirectory // self templateOption) contents.
+	partials := Array new.
+	"partials := self partialsToDictionary: self partialsOption."
 	result := (MustacheTemplate on: template)
 		value: (Json readFrom: json readStream)
 		partials: partials.
-	self stdout nextPutAll: result.
-	self stdout flush.
-	self exitSuccess! !
+	stdout := StdIOWriteStream stdout.
+	stdout nextPutAll: result.
+	stdout flush.! !
 
-!MustacheCommandLineHandler methodsFor: 'activation'!
+!MustacheCommandLineHandler methodsFor: 'activation' stamp: 'mnqpr 11/7/2023 18:22:57'!
 baseDirectory
-	^ baseDirectory ifNil: [ FileSystem workingDirectory ]! !
+	^ baseDirectory ifNil: [ DirectoryEntry currentDirectory ]! !
 
-!MustacheCommandLineHandler methodsFor: 'private'!
+!MustacheCommandLineHandler methodsFor: 'private' stamp: 'mnqpr 11/7/2023 18:48:17'!
 partialsToDictionary: aString
 	| fileNames file partials name |
 	self flag: #TODO.
 	"Change this to have partials file name with space"
 	partials := Dictionary new.
-	fileNames := aString substrings: ' '.
-	fileNames
-		replace: [ :each | 
-			file := (self baseDirectory resolve: each). 
+	aString ifNotNil: [
+		fileNames := aString substrings: ' '.
+		fileNames replace: [ :each |
+			file := self baseDirectory resolve: each.
 			file exists
-				ifTrue: [ 
-					name := (each substrings: '.') first. 
+				ifTrue: [
+					name := (each substrings: '.') first.
 					partials add: name -> file contents ]
-				ifFalse: [ self errorFileNotFound: each ] ].
-	^ partials ! !
+				ifFalse: [ self errorFileNotFound: each ]]]. 
+	^ partials.! !
 
 !MustacheCommandLineHandler methodsFor: 'accessing'!
 errorFileNotFound: aString
 	self help.
 	self exitFailure: 'The file ', aString, ' was not found'.! !
 
-!MustacheCommandLineHandler methodsFor: 'accessing'!
+!MustacheCommandLineHandler methodsFor: 'accessing' stamp: 'mnqpr 11/7/2023 18:26:50'!
 errorNeed: aString
-	self help.
-	self exitFailure: 'You need to define ', aString.! !
+	StdIOWriteStream stdout nextPutAll: 'You need to define ', aString.! !
 
-!MustacheCommandLineHandler methodsFor: 'accessing'!
+!MustacheCommandLineHandler methodsFor: 'accessing' stamp: 'mnqpr 11/7/2023 18:30:55'!
 jsonDataOption
-	^ self optionAt: 'data' ifAbsent: [ self errorNeed: 'data' ]! !
+	^ Smalltalk startUpArguments at: 2 ifAbsent: [ self errorNeed: 'data' ] ! !
 
-!MustacheCommandLineHandler methodsFor: 'accessing'!
+!MustacheCommandLineHandler methodsFor: 'accessing' stamp: 'mnqpr 11/7/2023 18:45:34'!
 partialsOption
-	^ self optionAt: 'partials' ifAbsent: [ '' ].! !
+	^ Smalltalk startUpArguments at: 3 ifAbsent: [ nil ] ! !
 
-!MustacheCommandLineHandler methodsFor: 'accessing'!
+!MustacheCommandLineHandler methodsFor: 'accessing' stamp: 'mnqpr 11/7/2023 19:22:39'!
 templateOption
-	^ self optionAt: 'template' ifAbsent: [ self errorNeed: 'template' ]! !
+	^ Smalltalk startUpArguments at: 1 ifAbsent: [ self errorNeed: 'template' ]! !
 
 !MustacheCommandLineHandler class methodsFor: 'as yet unclassified'!
 commandName
