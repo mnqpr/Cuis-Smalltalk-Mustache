@@ -1,6 +1,6 @@
-'From Cuis 6.0 [latest update: #6068] on 7 November 2023 at 7:48:59 pm'!
+'From Cuis 6.0 [latest update: #6068] on 8 November 2023 at 9:20:28 pm'!
 'Description '!
-!provides: 'Mustache' 1 26!
+!provides: 'Mustache' 1 34!
 !requires: 'Cuis-Base' 60 6068 nil!
 SystemOrganization addCategory: #'Mustache-Core'!
 SystemOrganization addCategory: #'Mustache-Tests'!
@@ -160,7 +160,7 @@ MustacheContextDelegator class
 
 !classDefinition: #MustacheCommandLineHandler category: #'Mustache-Cli'!
 ProtoObject subclass: #MustacheCommandLineHandler
-	instanceVariableNames: 'baseDirectory'
+	instanceVariableNames: ''
 	classVariableNames: ''
 	poolDictionaries: ''
 	category: 'Mustache-Cli'!
@@ -206,16 +206,17 @@ A MustacheWriteVisitor is the main visitor produces a final string from a templa
 
 It is used by MustacheTemplate!
 
-!MustacheCommandLineHandler commentStamp: '' prior: 0!
+!MustacheCommandLineHandler commentStamp: '<historical>' prior: 0!
 I am the top level command line handler for Mustache.
 
-My keyword is "mustache-pharo".
+My compileFromCLI class method is used to compile a template.
+My parameters:
+	-template file name
+	-JSON file name
+	-partials list of filenames inside quotationmarks
+	-directory where the previous files are stored, if missing it use the current working directory
 
-Options:
-	--data 				a json file
-	--template			a template for mustache
-	[--partials]			template files
-	[--baseDirectory] 		a directory where files can be found!
+Eg.: squeak -headless "Cuis6.0-XXXX.image" -d "MustacheCommandLineHandler compileFromCLI"  template.txt test.json "patial1.txt partial2.txt" "/home/MyUser/MustacheTemplates"!
 
 !ValueLink methodsFor: 'evaluating'!
 value
@@ -1270,68 +1271,35 @@ doesNotUnderstand: aMessage
 		ifTrue: [ ^ aMessage sendTo: delegate ].
 	^ super doesNotUnderstand: aMessage! !
 
-!MustacheCommandLineHandler methodsFor: 'activation' stamp: 'mnqpr 11/7/2023 18:53:20'!
-activate
-	| result template json partials stdout |
-	baseDirectory := (Smalltalk startUpArguments
-		at: 4
-		ifAbsent: [ self baseDirectory ]) asDirectoryEntry.
-	json := (self baseDirectory // self jsonDataOption) contents.
-	template := (self baseDirectory // self templateOption) contents.
+!MustacheCommandLineHandler class methodsFor: 'instance creation' stamp: 'mnqpr 11/8/2023 20:38:16'!
+compileTemplate: templatePathOrFileName data: jsonPathOrFileName partials: arrayOfPartialPaths baseDirectory: aDirectoryPath
+	| result template partials json baseDirectory stdout |
+	baseDirectory := aDirectoryPath asDirectoryEntry.
+	json := (baseDirectory // jsonPathOrFileName) fileContents asString.
+	template := (baseDirectory // templatePathOrFileName) fileContents asString.
 	partials := Array new.
-	"partials := self partialsToDictionary: self partialsOption."
 	result := (MustacheTemplate on: template)
 		value: (Json readFrom: json readStream)
-		partials: partials.
+		partials: partials :: asStreamResult.
 	stdout := StdIOWriteStream stdout.
 	stdout nextPutAll: result.
-	stdout flush.! !
+	stdout flush. ! !
 
-!MustacheCommandLineHandler methodsFor: 'activation' stamp: 'mnqpr 11/7/2023 18:22:57'!
-baseDirectory
-	^ baseDirectory ifNil: [ DirectoryEntry currentDirectory ]! !
-
-!MustacheCommandLineHandler methodsFor: 'private' stamp: 'mnqpr 11/7/2023 18:48:17'!
-partialsToDictionary: aString
-	| fileNames file partials name |
-	self flag: #TODO.
-	"Change this to have partials file name with space"
-	partials := Dictionary new.
-	aString ifNotNil: [
-		fileNames := aString substrings: ' '.
-		fileNames replace: [ :each |
-			file := self baseDirectory resolve: each.
-			file exists
-				ifTrue: [
-					name := (each substrings: '.') first.
-					partials add: name -> file contents ]
-				ifFalse: [ self errorFileNotFound: each ]]]. 
-	^ partials.! !
-
-!MustacheCommandLineHandler methodsFor: 'accessing'!
-errorFileNotFound: aString
-	self help.
-	self exitFailure: 'The file ', aString, ' was not found'.! !
-
-!MustacheCommandLineHandler methodsFor: 'accessing' stamp: 'mnqpr 11/7/2023 18:26:50'!
-errorNeed: aString
-	StdIOWriteStream stdout nextPutAll: 'You need to define ', aString.! !
-
-!MustacheCommandLineHandler methodsFor: 'accessing' stamp: 'mnqpr 11/7/2023 18:30:55'!
-jsonDataOption
-	^ Smalltalk startUpArguments at: 2 ifAbsent: [ self errorNeed: 'data' ] ! !
-
-!MustacheCommandLineHandler methodsFor: 'accessing' stamp: 'mnqpr 11/7/2023 18:45:34'!
-partialsOption
-	^ Smalltalk startUpArguments at: 3 ifAbsent: [ nil ] ! !
-
-!MustacheCommandLineHandler methodsFor: 'accessing' stamp: 'mnqpr 11/7/2023 19:22:39'!
-templateOption
-	^ Smalltalk startUpArguments at: 1 ifAbsent: [ self errorNeed: 'template' ]! !
-
-!MustacheCommandLineHandler class methodsFor: 'as yet unclassified'!
-commandName
-	^'mustache'! !
+!MustacheCommandLineHandler class methodsFor: 'CLI interface' stamp: 'mnqpr 11/8/2023 21:06:17'!
+compileFromCLI
+	| arguments numArgs startupArguments |
+	startupArguments := Smalltalk startUpArguments.
+	numArgs := 6.
+	numArgs = startupArguments size
+		ifTrue: [ arguments := startupArguments lastAvailable: 4 ]
+		ifFalse: [
+			arguments := Array new: 4.
+			arguments fillWith: (startupArguments lastAvailable: 4) ].
+	self
+		perform: #compileTemplate:data:partials:baseDirectory:
+		withArguments: arguments.
+	Smalltalk
+		quit! !
 
 !Object methodsFor: '*Mustache-converting' stamp: 'mnqpr 11/5/2023 19:12:55'!
 asLink
@@ -1387,6 +1355,14 @@ asHTMLString
 		self = k ifTrue: [^ v]].
 	^ String with: self! !
 
+!UnicodeCodePoint methodsFor: '*Mustache-converting' stamp: 'mnqpr 11/8/2023 20:31:42'!
+asHTMLString
+	"substitute the < & > into HTML compliant elements"
+
+	#($< '&lt;' $> '&gt;' $& '&amp;') pairsDo: [:k :v |
+		self = k ifTrue: [^ v]].
+	^ String with: self! !
+
 !Collection methodsFor: '*mustache-core'!
 mustacheDo: aBlock
 	self do: aBlock! !
@@ -1417,7 +1393,7 @@ streamSpecies
 	"I return the class that is used for streaming. If override consider overriding #new:streamContents:"
 	^ self! !
 
-!String methodsFor: '*Mustache-copying' stamp: 'mnqpr 11/5/2023 18:36:09'!
+!CharacterSequence methodsFor: '*Mustache-copying' stamp: 'mnqpr 11/8/2023 20:27:06'!
 asHTMLString
 	"substitute the < & > into HTML compliant elements"
 	"'<a>' asHTMLString"
