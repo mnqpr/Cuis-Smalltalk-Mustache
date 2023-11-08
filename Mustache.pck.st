@@ -1,6 +1,6 @@
-'From Cuis 6.0 [latest update: #6068] on 8 November 2023 at 9:20:28 pm'!
+'From Cuis 6.0 [latest update: #6068] on 8 November 2023 at 9:33:58 pm'!
 'Description '!
-!provides: 'Mustache' 1 34!
+!provides: 'Mustache' 1 36!
 !requires: 'Cuis-Base' 60 6068 nil!
 SystemOrganization addCategory: #'Mustache-Core'!
 SystemOrganization addCategory: #'Mustache-Tests'!
@@ -1271,21 +1271,23 @@ doesNotUnderstand: aMessage
 		ifTrue: [ ^ aMessage sendTo: delegate ].
 	^ super doesNotUnderstand: aMessage! !
 
-!MustacheCommandLineHandler class methodsFor: 'instance creation' stamp: 'mnqpr 11/8/2023 20:38:16'!
+!MustacheCommandLineHandler class methodsFor: 'instance creation' stamp: 'mnqpr 11/8/2023 21:33:04'!
 compileTemplate: templatePathOrFileName data: jsonPathOrFileName partials: arrayOfPartialPaths baseDirectory: aDirectoryPath
 	| result template partials json baseDirectory stdout |
-	baseDirectory := aDirectoryPath asDirectoryEntry.
+	baseDirectory := aDirectoryPath
+		ifNil: [ DirectoryEntry currentDirectory ]
+		ifNotNil: [ aDirectoryPath asDirectoryEntry ].
 	json := (baseDirectory // jsonPathOrFileName) fileContents asString.
 	template := (baseDirectory // templatePathOrFileName) fileContents asString.
 	partials := Array new.
-	result := (MustacheTemplate on: template)
+	result := ((MustacheTemplate on: template)
 		value: (Json readFrom: json readStream)
-		partials: partials :: asStreamResult.
+		partials: partials) asStreamResult.
 	stdout := StdIOWriteStream stdout.
 	stdout nextPutAll: result.
-	stdout flush. ! !
+	stdout flush.! !
 
-!MustacheCommandLineHandler class methodsFor: 'CLI interface' stamp: 'mnqpr 11/8/2023 21:06:17'!
+!MustacheCommandLineHandler class methodsFor: 'CLI interface' stamp: 'mnqpr 11/8/2023 21:33:54'!
 compileFromCLI
 	| arguments numArgs startupArguments |
 	startupArguments := Smalltalk startUpArguments.
@@ -1294,12 +1296,11 @@ compileFromCLI
 		ifTrue: [ arguments := startupArguments lastAvailable: 4 ]
 		ifFalse: [
 			arguments := Array new: 4.
-			arguments fillWith: (startupArguments lastAvailable: 4) ].
+			arguments fillWith: (startupArguments lastAvailable: 3) ].
 	self
 		perform: #compileTemplate:data:partials:baseDirectory:
 		withArguments: arguments.
-	Smalltalk
-		quit! !
+	Smalltalk quit.! !
 
 !Object methodsFor: '*Mustache-converting' stamp: 'mnqpr 11/5/2023 19:12:55'!
 asLink
