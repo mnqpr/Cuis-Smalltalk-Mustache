@@ -1,6 +1,6 @@
-'From Cuis 6.0 [latest update: #6068] on 12 November 2023 at 7:13:19 pm'!
+'From Cuis 6.0 [latest update: #6068] on 12 November 2023 at 9:33:03 pm'!
 'Description '!
-!provides: 'Mustache' 1 44!
+!provides: 'Mustache' 1 49!
 !requires: 'Cuis-Base' 60 6068 nil!
 SystemOrganization addCategory: #'Mustache-Core'!
 SystemOrganization addCategory: #'Mustache-Tests'!
@@ -209,14 +209,20 @@ It is used by MustacheTemplate!
 !MustacheCommandLineHandler commentStamp: '<historical>' prior: 0!
 I am the top level command line handler for Mustache.
 
-My compileFromCLI class method is used to compile a template.
+My #compile class method is used to compile a template.
 My parameters:
 	-template file name
 	-JSON file name
-	-partials list of filenames inside quotationmarks
-	-directory where the previous files are stored, if missing it use the current working directory
+	-partials list of filenames inside quotationmarks separated by a space
+	-directory where the previous files are stored, if missing I use the current working directory
 
-Eg.: squeak -headless "Cuis6.0-XXXX.image" -d "MustacheCommandLineHandler compileFromCLI"  template.txt test.json "patial1.txt partial2.txt" "/home/MyUser/MustacheTemplates"!
+Eg.: squeak -headless "Cuis6.0-XXXX.image" -d "MustacheCommandLineHandler compile"  template.txt data.json "partial1.txt partial2.txt" "/home/MyUser/MustacheTemplates"
+
+If you use partials the filename's #baseName will be used as a key in the dictionary containing the partial templates. So use yor filename as a reference in the template.
+
+Eg.:
+{{#buttonOne}}{{> partial1}}{{/buttonOne}}
+{{#buttonTwo}}{{> partial2}}{{/buttonTwo}}!
 
 !ValueLink methodsFor: 'evaluating'!
 value
@@ -1271,15 +1277,19 @@ doesNotUnderstand: aMessage
 		ifTrue: [ ^ aMessage sendTo: delegate ].
 	^ super doesNotUnderstand: aMessage! !
 
-!MustacheCommandLineHandler class methodsFor: 'instance creation' stamp: 'mnqpr 11/8/2023 21:33:04'!
-compileTemplate: templatePathOrFileName data: jsonPathOrFileName partials: arrayOfPartialPaths baseDirectory: aDirectoryPath
+!MustacheCommandLineHandler class methodsFor: 'instance creation' stamp: 'mnqpr 11/12/2023 21:19:30'!
+compileTemplate: templatefileName data: jsonFileName partials: arrayOfPartialFileNames baseDirectory: aDirectoryPathOrNil
 	| result template partials json baseDirectory stdout |
-	baseDirectory := aDirectoryPath
+	baseDirectory := aDirectoryPathOrNil
 		ifNil: [ DirectoryEntry currentDirectory ]
-		ifNotNil: [ aDirectoryPath asDirectoryEntry ].
-	json := (baseDirectory // jsonPathOrFileName) fileContents asString.
-	template := (baseDirectory // templatePathOrFileName) fileContents asString.
-	partials := Array new.
+		ifNotNil: [ aDirectoryPathOrNil asDirectoryEntry ].
+	json := (baseDirectory // jsonFileName) fileContents asString.
+	template := (baseDirectory // templatefileName) fileContents asString.
+	partials := Dictionary new.
+	arrayOfPartialFileNames ifNotNil: [
+		arrayOfPartialFileNames substrings do: [ :each | | fileEntry |
+			fileEntry := baseDirectory // each.
+			partials add: fileEntry baseName -> fileEntry fileContents asString ]].
 	result := ((MustacheTemplate on: template)
 		value: (Json readFrom: json readStream)
 		partials: partials) asStreamResult.
