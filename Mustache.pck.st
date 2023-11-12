@@ -1,6 +1,6 @@
-'From Cuis 6.0 [latest update: #6068] on 8 November 2023 at 9:33:58 pm'!
+'From Cuis 6.0 [latest update: #6068] on 12 November 2023 at 7:13:19 pm'!
 'Description '!
-!provides: 'Mustache' 1 36!
+!provides: 'Mustache' 1 44!
 !requires: 'Cuis-Base' 60 6068 nil!
 SystemOrganization addCategory: #'Mustache-Core'!
 SystemOrganization addCategory: #'Mustache-Tests'!
@@ -369,14 +369,14 @@ testDefaultUnescapedToken
 	self assert: result = 'This is a test for &.'.
 	! !
 
-!MustacheTests methodsFor: 'tests' stamp: 'mnqpr 11/6/2023 20:51:44'!
+!MustacheTests methodsFor: 'tests' stamp: 'mnqpr 11/6/2023 20:50:51'!
 testDictionaryInDictionary
 	| template result |
 	template := MustacheTemplate on: '{{#person?}} Hi {{name}}!! {{/person?}}' .
 	result := template 
 		value: { 'person?' -> 
 			{ 'name' -> 'Jon' } asDictionary  } asDictionary.
-	self assert: result = ' Hi ''Jon''!! '! !
+	self assert: result = ' Hi Jon!! ' ! !
 
 !MustacheTests methodsFor: 'tests'!
 testDotToken
@@ -1186,7 +1186,7 @@ visitStringChunk: aMustacheStringChunk
 visitTemplate: aMustacheTemplate 
 	self visitCompositePart: aMustacheTemplate ! !
 
-!MustacheVisitor methodsFor: 'visiting'!
+!MustacheVisitor methodsFor: 'visiting' stamp: 'mnqpr 11/12/2023 19:10:49'!
 visitToken: aMustacheToken
 	self visitHtmlEscapedToken: aMustacheToken  
 	! !
@@ -1195,7 +1195,7 @@ visitToken: aMustacheToken
 visitHtmlEscapedToken: aToken
 	self addString: (aToken valueInContext: context)! !
 
-!MustacheWriteVisitor methodsFor: 'visiting'!
+!MustacheWriteVisitor methodsFor: 'visiting' stamp: 'mnqpr 11/12/2023 19:09:54'!
 visitSection: aSection 
 	 | oldContext value |
 	oldContext := context.
@@ -1287,8 +1287,8 @@ compileTemplate: templatePathOrFileName data: jsonPathOrFileName partials: array
 	stdout nextPutAll: result.
 	stdout flush.! !
 
-!MustacheCommandLineHandler class methodsFor: 'CLI interface' stamp: 'mnqpr 11/8/2023 21:33:54'!
-compileFromCLI
+!MustacheCommandLineHandler class methodsFor: 'CLI interface' stamp: 'mnqpr 11/12/2023 19:12:54'!
+compile
 	| arguments numArgs startupArguments |
 	startupArguments := Smalltalk startUpArguments.
 	numArgs := 6.
@@ -1363,6 +1363,15 @@ asHTMLString
 	#($< '&lt;' $> '&gt;' $& '&amp;') pairsDo: [:k :v |
 		self = k ifTrue: [^ v]].
 	^ String with: self! !
+
+!BlockClosure methodsFor: '*Mustache-evaluating' stamp: 'mnqpr 11/12/2023 19:09:19'!
+cull: anArg
+	"Execute the receiver with one or zero arguments depending on the receiver"
+	"([ 12 ] cull: 13)>>> 12 "
+	"([:x | x + 12] cull: 3)>>> 15"
+	^numArgs = 0
+		ifTrue: [self value]
+		ifFalse: [self value: anArg]! !
 
 !Collection methodsFor: '*mustache-core'!
 mustacheDo: aBlock
@@ -1467,7 +1476,15 @@ trimLeft: aLeftBlock right: aRightBlock
 
 	^ self copyFrom: left to: right! !
 
-!Dictionary methodsFor: '*mustache-core' stamp: 'mnqpr 11/6/2023 18:23:36'!
+!Set methodsFor: '*Mustache-Core' stamp: 'mnqpr 11/12/2023 19:06:14'!
+mustacheDo: aBlock
+	aBlock value: self! !
+
+!Set methodsFor: '*Mustache-Core' stamp: 'mnqpr 11/12/2023 19:06:30'!
+mustacheDo: aBlock inverted: aBoolean
+	aBoolean ifFalse: [ aBlock cull: self ]! !
+
+!Dictionary methodsFor: '*mustache-core' stamp: 'mnqpr 11/12/2023 18:04:02'!
 mustacheLookup: aString
 	(aString = '.') ifTrue: [ ^ self ].
 	^ self at: aString ifAbsent: [ self mustacheLookupComplex: aString ]! !
