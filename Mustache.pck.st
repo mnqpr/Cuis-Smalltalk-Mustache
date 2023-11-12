@@ -1,6 +1,6 @@
-'From Cuis 6.0 [latest update: #6068] on 12 November 2023 at 9:33:03 pm'!
+'From Cuis 6.0 [latest update: #6068] on 12 November 2023 at 10:09:17 pm'!
 'Description '!
-!provides: 'Mustache' 1 49!
+!provides: 'Mustache' 1 55!
 !requires: 'Cuis-Base' 60 6068 nil!
 SystemOrganization addCategory: #'Mustache-Core'!
 SystemOrganization addCategory: #'Mustache-Tests'!
@@ -213,16 +213,18 @@ My #compile class method is used to compile a template.
 My parameters:
 	-template file name
 	-JSON file name
-	-partials list of filenames inside quotationmarks separated by a space
-	-directory where the previous files are stored, if missing I use the current working directory
+	-partials (optional) list of filenames inside quotationmarks separated by a space. If you don't have partials but want to use the directory parameter use empty quotationmarks.
+	-directory (optional) where the previous files are stored, if missing I use the current working directory
 
-Eg.: squeak -headless "Cuis6.0-XXXX.image" -d "MustacheCommandLineHandler compile"  template.txt data.json "partial1.txt partial2.txt" "/home/MyUser/MustacheTemplates"
+Eg. 1: squeak -headless "Cuis6.0-XXXX.image" -d "MustacheCommandLineHandler compile"  template.txt data.json "partial1.txt partial2.txt" "/home/MyUser/MustacheTemplates"
 
 If you use partials the filename's #baseName will be used as a key in the dictionary containing the partial templates. So use yor filename as a reference in the template.
 
-Eg.:
+Eg. 2:
 {{#buttonOne}}{{> partial1}}{{/buttonOne}}
-{{#buttonTwo}}{{> partial2}}{{/buttonTwo}}!
+{{#buttonTwo}}{{> partial2}}{{/buttonTwo}}
+
+Eg. 3: squeak -headless "Cuis6.0-XXXX.image" -d "MustacheCommandLineHandler compile"  template.txt data.json "" "/home/MyUser/MustacheTemplates"!
 
 !ValueLink methodsFor: 'evaluating'!
 value
@@ -1277,7 +1279,7 @@ doesNotUnderstand: aMessage
 		ifTrue: [ ^ aMessage sendTo: delegate ].
 	^ super doesNotUnderstand: aMessage! !
 
-!MustacheCommandLineHandler class methodsFor: 'instance creation' stamp: 'mnqpr 11/12/2023 21:19:30'!
+!MustacheCommandLineHandler class methodsFor: 'instance creation' stamp: 'mnqpr 11/12/2023 22:02:00'!
 compileTemplate: templatefileName data: jsonFileName partials: arrayOfPartialFileNames baseDirectory: aDirectoryPathOrNil
 	| result template partials json baseDirectory stdout |
 	baseDirectory := aDirectoryPathOrNil
@@ -1285,28 +1287,33 @@ compileTemplate: templatefileName data: jsonFileName partials: arrayOfPartialFil
 		ifNotNil: [ aDirectoryPathOrNil asDirectoryEntry ].
 	json := (baseDirectory // jsonFileName) fileContents asString.
 	template := (baseDirectory // templatefileName) fileContents asString.
-	partials := Dictionary new.
-	arrayOfPartialFileNames ifNotNil: [
-		arrayOfPartialFileNames substrings do: [ :each | | fileEntry |
-			fileEntry := baseDirectory // each.
-			partials add: fileEntry baseName -> fileEntry fileContents asString ]].
-	result := ((MustacheTemplate on: template)
-		value: (Json readFrom: json readStream)
-		partials: partials) asStreamResult.
+	(arrayOfPartialFileNames notNil and: [ arrayOfPartialFileNames ~= '' ])
+		ifTrue: [
+			partials := Dictionary new.
+			arrayOfPartialFileNames substrings do: [ :each | | fileEntry |
+				fileEntry := baseDirectory // each.
+				partials add: fileEntry baseName -> fileEntry fileContents asString ].
+			result := ((MustacheTemplate on: template)
+				value: (Json readFrom: json readStream)
+				partials: partials) asStreamResult ]
+		ifFalse: [ result := ((MustacheTemplate on: template) value: (Json readFrom: json readStream))  asStreamResult ].
 	stdout := StdIOWriteStream stdout.
 	stdout nextPutAll: result.
 	stdout flush.! !
 
-!MustacheCommandLineHandler class methodsFor: 'CLI interface' stamp: 'mnqpr 11/12/2023 19:12:54'!
+!MustacheCommandLineHandler class methodsFor: 'CLI interface' stamp: 'mnqpr 11/12/2023 21:44:48'!
 compile
-	| arguments numArgs startupArguments |
+	| arguments startupArguments argSize |
 	startupArguments := Smalltalk startUpArguments.
-	numArgs := 6.
-	numArgs = startupArguments size
-		ifTrue: [ arguments := startupArguments lastAvailable: 4 ]
-		ifFalse: [
-			arguments := Array new: 4.
+	argSize := startupArguments size.
+		"Every argument is passed in."
+	argSize = 6 ifTrue: [ arguments := startupArguments lastAvailable: 4 ].
+	"baseDirectory is missing."
+	argSize  = 5 ifTrue: [ arguments := Array new: 4.
 			arguments fillWith: (startupArguments lastAvailable: 3) ].
+	"baseDirectory and partials are missing."
+	argSize  = 4 ifTrue: [ arguments := Array new: 4.
+			arguments fillWith: (startupArguments lastAvailable: 2) ].
 	self
 		perform: #compileTemplate:data:partials:baseDirectory:
 		withArguments: arguments.
