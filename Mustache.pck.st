@@ -1,6 +1,6 @@
-'From Cuis 6.0 [latest update: #6068] on 12 November 2023 at 10:09:17 pm'!
+'From Cuis 6.0 [latest update: #6068] on 13 November 2023 at 9:25:57 pm'!
 'Description '!
-!provides: 'Mustache' 1 55!
+!provides: 'Mustache' 1 61!
 !requires: 'Cuis-Base' 60 6068 nil!
 SystemOrganization addCategory: #'Mustache-Core'!
 SystemOrganization addCategory: #'Mustache-Tests'!
@@ -214,7 +214,7 @@ My parameters:
 	-template file name
 	-JSON file name
 	-partials (optional) list of filenames inside quotationmarks separated by a space. If you don't have partials but want to use the directory parameter use empty quotationmarks.
-	-directory (optional) where the previous files are stored, if missing I use the current working directory
+	-directory where the previous files are stored, if missing I use the current working directory
 
 Eg. 1: squeak -headless "Cuis6.0-XXXX.image" -d "MustacheCommandLineHandler compile"  template.txt data.json "partial1.txt partial2.txt" "/home/MyUser/MustacheTemplates"
 
@@ -1252,15 +1252,18 @@ addString: aString
 context: anObject
 	context := anObject! !
 
-!MustacheWriteVisitor methodsFor: 'accessing'!
+!MustacheWriteVisitor methodsFor: 'accessing' stamp: 'mnqpr 11/13/2023 20:49:19'!
 string
+	| result |
 	^ strings
 		ifNotEmpty: [   
-			String 
+			result := String 
 				new: ( strings sum: #size ) 
 				streamContents: [ :stream|
 					strings do: [ :string| 
-					stream nextPutAll: string ] ] ]
+					stream nextPutAll: string ] ].
+			"The result could be an instance of ArrayOfCharactersAndCodePoints and it needs to be converted back to string."
+			result asStreamResult ]
 		ifEmpty: [ '' ]! !
 
 !MustacheContextDelegator methodsFor: 'accessing'!
@@ -1279,28 +1282,6 @@ doesNotUnderstand: aMessage
 		ifTrue: [ ^ aMessage sendTo: delegate ].
 	^ super doesNotUnderstand: aMessage! !
 
-!MustacheCommandLineHandler class methodsFor: 'instance creation' stamp: 'mnqpr 11/12/2023 22:02:00'!
-compileTemplate: templatefileName data: jsonFileName partials: arrayOfPartialFileNames baseDirectory: aDirectoryPathOrNil
-	| result template partials json baseDirectory stdout |
-	baseDirectory := aDirectoryPathOrNil
-		ifNil: [ DirectoryEntry currentDirectory ]
-		ifNotNil: [ aDirectoryPathOrNil asDirectoryEntry ].
-	json := (baseDirectory // jsonFileName) fileContents asString.
-	template := (baseDirectory // templatefileName) fileContents asString.
-	(arrayOfPartialFileNames notNil and: [ arrayOfPartialFileNames ~= '' ])
-		ifTrue: [
-			partials := Dictionary new.
-			arrayOfPartialFileNames substrings do: [ :each | | fileEntry |
-				fileEntry := baseDirectory // each.
-				partials add: fileEntry baseName -> fileEntry fileContents asString ].
-			result := ((MustacheTemplate on: template)
-				value: (Json readFrom: json readStream)
-				partials: partials) asStreamResult ]
-		ifFalse: [ result := ((MustacheTemplate on: template) value: (Json readFrom: json readStream))  asStreamResult ].
-	stdout := StdIOWriteStream stdout.
-	stdout nextPutAll: result.
-	stdout flush.! !
-
 !MustacheCommandLineHandler class methodsFor: 'CLI interface' stamp: 'mnqpr 11/12/2023 21:44:48'!
 compile
 	| arguments startupArguments argSize |
@@ -1318,6 +1299,39 @@ compile
 		perform: #compileTemplate:data:partials:baseDirectory:
 		withArguments: arguments.
 	Smalltalk quit.! !
+
+!MustacheCommandLineHandler class methodsFor: 'CLI interface' stamp: 'mnqpr 11/13/2023 21:23:27'!
+compileTemplate: templatefileName data: jsonFileName partials: arrayOfPartialFileNames baseDirectory: aDirectoryPathOrNil
+	| result template partials json baseDirectory |
+	baseDirectory := aDirectoryPathOrNil
+		ifNil: [ DirectoryEntry currentDirectory ]
+		ifNotNil: [ aDirectoryPathOrNil asDirectoryEntry ].
+	json := (baseDirectory // jsonFileName) fileContents asString.
+	template := (baseDirectory // templatefileName) fileContents asString.
+	(arrayOfPartialFileNames notNil and: [ arrayOfPartialFileNames ~= '' ])
+		ifTrue: [
+			partials := Dictionary new.
+			arrayOfPartialFileNames substrings do: [ :each | | fileEntry |
+				fileEntry := baseDirectory // each.
+				partials add: fileEntry baseName -> fileEntry fileContents asString ].
+			result := [
+			(MustacheTemplate on: template)
+				value: (Json readFrom: json readStream)
+				partials: partials ]
+				on: Error
+				do: [ :anError |
+					^ self printToCLI: anError messageText , String newLineString ]]
+		ifFalse: [
+			result := [ (MustacheTemplate on: template) value: (Json readFrom: json readStream) ]
+				on: Error
+				do: [ :anError |
+					^ self printToCLI: anError messageText , String newLineString ]].
+	self printToCLI: result.! !
+
+!MustacheCommandLineHandler class methodsFor: 'CLI interface' stamp: 'mnqpr 11/13/2023 21:25:08'!
+printToCLI: result
+
+	 StdIOWriteStream stdout nextPutAll: result; flush.! !
 
 !Object methodsFor: '*Mustache-converting' stamp: 'mnqpr 11/5/2023 19:12:55'!
 asLink
