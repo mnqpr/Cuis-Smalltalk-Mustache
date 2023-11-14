@@ -1,6 +1,6 @@
-'From Cuis 6.0 [latest update: #6068] on 13 November 2023 at 9:25:57 pm'!
+'From Cuis 6.0 [latest update: #6068] on 14 November 2023 at 7:15:36 am'!
 'Description '!
-!provides: 'Mustache' 1 61!
+!provides: 'Mustache' 1 62!
 !requires: 'Cuis-Base' 60 6068 nil!
 SystemOrganization addCategory: #'Mustache-Core'!
 SystemOrganization addCategory: #'Mustache-Tests'!
@@ -641,20 +641,29 @@ testSingleTokenUndefinedValue
 	self assert: result = 'This is a test for .' 
 	! !
 
-!MustacheTests methodsFor: 'tests' stamp: 'mnqpr 11/6/2023 17:14:25'!
+!MustacheTests methodsFor: 'tests' stamp: 'mnqpr 11/14/2023 07:13:54'!
 testTemplateFromFile
 	| template result |
-	testFile writeStreamDo: [ :stream | stream nextPutAll: '12{{i}}4' ].
+	testFile writeStreamDo: [ :stream |
+		stream nextPutAll: '12{{i}}4' ].
 	template := testFile asMustacheTemplate.
-	result := template value: { 'i' -> '3' } asDictionary .
-	self assert: result asStreamResult equals: '1234' ! !
+	result := template value:
+		{'i' -> '3'} asDictionary.
+	self
+		assert: result
+		equals: '1234'.! !
 
-!MustacheTests methodsFor: 'tests' stamp: 'mnqpr 11/6/2023 17:15:32'!
+!MustacheTests methodsFor: 'tests' stamp: 'mnqpr 11/14/2023 07:14:45'!
 testTemplateFromFileWithBlock
 	| result |
-	testFile writeStreamDo: [ :stream | stream nextPutAll: '12{{i}}4' ].
-	testFile mustacheTemplateDuring: [ :template | result := template value: {('i' -> '3')} asDictionary ].
-	self assert: result asStreamResult equals: '1234'! !
+	testFile writeStreamDo: [ :stream |
+		stream nextPutAll: '12{{i}}4' ].
+	testFile mustacheTemplateDuring: [ :template |
+		result := template value:
+			{'i' -> '3'} asDictionary ].
+	self
+		assert: result
+		equals: '1234'.! !
 
 !MustacheTests methodsFor: 'tests'!
 testUnescapedToken
